@@ -232,14 +232,11 @@ class Client(Ice.Application):
                     selected = int(input("\nSelect the number of the title, choose from 1 to ", len(self.history_media)+1, ": "))
                     if selected> len(self.history_media)+1 or selected < 0:
                         raise ValueError
-                    else:
-                        break
 
                 except ValueError:
                     logging.error("Incorrect option, try again please")
-                    continue
-        
-        return self.history_media[selected] #devuelve el objeto entero seleccionado
+                else:
+                    return self.history_media[selected] #devuelve el objeto entero seleccionado
             
 
 
@@ -255,35 +252,40 @@ class Client(Ice.Application):
                 print('2. Remove tags')
                 print('3. Exit')
 
-                option = input()
-
-                if option == '1':
-                    try:
-                        tags = input("Introduce the tags you want to add: ").lower().split()
-                        catalog.add_tags_tile(selected.mediaId, tags, self.token)
-                        logging.info("Tags added correctly")
-                    except IceFlix.Unauthorized:
-                        logging.error("Provided user token is wrong")
-                    except IceFlix.WrongMediaId:
-                        logging.error("Media id can not be found")
-                    break
-
-                elif option == '2':
-                    try:
-                        tags = input("Introduce the tags you want to remove: ").lower().split()
-                        catalog.remove_tags_tile(selected.mediaqId, tags, self.token)
-                        logging.info("Tags removed correctly")
-                    except IceFlix.Unauthorized:
-                        logging.error("Provided user token is wrong")
-                    except IceFlix.WrongMediaId:
-                        logging.error("Media id can not be found")
-                    break
-
-                elif option == '3':
-                    break
-
+                try:
+                    option = input()
+                    if option> 3 or option < 0:
+                        raise ValueError
+                except ValueError:
+                    logging.error("Incorrect option, try again please")
+                    
                 else:
-                    print("Incorrect option, please try again")
+
+                    if option == '1':
+                        try:
+                            tags = input("Introduce the tags you want to add: ").lower().split()
+                            catalog.add_tags_tile(selected.mediaId, tags, self.token)
+                            logging.info("Tags added correctly")
+                        except IceFlix.Unauthorized:
+                            logging.error("Provided user token is wrong")
+                        except IceFlix.WrongMediaId:
+                            logging.error("Media id can not be found")
+                        break
+
+                    elif option == '2':
+                        try:
+                            tags = input("Introduce the tags you want to remove: ").lower().split()
+                            catalog.remove_tags_tile(selected.mediaqId, tags, self.token)
+                            logging.info("Tags removed correctly")
+                        except IceFlix.Unauthorized:
+                            logging.error("Provided user token is wrong")
+                        except IceFlix.WrongMediaId:
+                            logging.error("Media id can not be found")
+                        break
+
+                    elif option == '3':
+                        break
+
     
     def download_media(self):
         try:
