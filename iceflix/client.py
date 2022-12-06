@@ -5,6 +5,7 @@ import getpass
 from hashlib import sha256
 import threading
 import time
+from client_cmd import Client_cmd
 
 import Ice
 
@@ -44,15 +45,18 @@ class Client(Ice.Application):
         self.history_media = [] #lusta de objetos media que obtenemos en la ultima busqueda
 
     def run(self, argv):
-        # comm = self.communicator()
-        # client_cmd = Client_cmd()
-        # threading.Thread(target=client_cmd.cmdloop()).start()
-        # comm.waitForShutdown()
+
+        comm = self.communicator()
+        adapter = comm.createObjectAdapterWithEndpoints("ClientAdapter", "tcp")
+        client_cmd = Client_cmd()
+        main_proxy = self.connect() #He modificado el metodo connect para que me devuelva el proxy del main y así poder pasarlo como argumento
+        threading.Thread(target=client_cmd.cmdloop(), args= main_proxy).start()
+        comm.waitForShutdown()
         self.connect()
 
 
     def actual_state(self):
-        """Prints if the client is connected and if the log in is done"""
+        """Prints if the client is connected and logged"""
         if self.main_obj == None:
             print("\nConnexion: disconnected")
         else:
@@ -69,25 +73,29 @@ class Client(Ice.Application):
                     print("El servicio de autentificacion no está disponible")
 
     def connect(self):
+        if self.client.main_obj is not None:
+            print("You are already connected.")
+        else:
             for i in range(3):
-                main_proxy_string = input("Introduzca el proxy al servicio principal:")
+                main_proxy_string = input("Please, introduce the main proxy:")
                 try:
                     comm = self.communicator()
                     main_proxy = comm.stringToProxy(main_proxy_string)
                     self.main_obj = IceFlix.MainPrx.checkedCast(main_proxy)
 
                     if self.main_obj:
-                        print("Conexión establecida correctamente")
-                        break
+                        print("Successfully connected")
+                        return main_proxy
                     else:
                         print("Incorrect proxy. Please try again, ", 2-i, "remaining oportunities.")
                         time.sleep(5)
                         return -1
                 except Ice.NoEndpointException:
                     print("Sorry, it does not connect,  ", 2-i, "remaining oportunities" )
-                # except (Ice.TemporaryUnavailable):
-                #     logging.error("El servicio principal no está disponible") #los errores estan bn asi o esto es de eventos de la entrega 2???
-                #     print("Vuelva a intentarlo, le quedan ", 2-i, " oportunidades.")
+                except (Ice.TemporaryUnavailable):
+                    logging.error("Sorry, the main service is not available") 
+                    print("Please try again, ", 2-i, "remaining oportunities.")
+                
                 
     def log_in(self):
         if self.user != "":
@@ -159,7 +167,7 @@ class Client(Ice.Application):
                 #por nombre
                 if nameorTag == "name":
                     exact = bool(input("Would you like to make an exact search? Please write yes or no:").lower()=="yes") #si no es ni si no no volver a preguntar?????????
-                    name = input("\nEscriba el titulo que quiera buscar:")
+                    name = input("\nWrite the title to want to search:")
 
                     self.history = catalog.getTilesByName(name, exact)
                     self.view_last_search(catalog)
@@ -167,17 +175,17 @@ class Client(Ice.Application):
 
                 #por tags
                 elif nameorTag == "tag":
-                    tags = input("\nIntroduzca los tags que desea buscar, escribalos separados por espacios:").split()
+                    tags = input("\nIntroduce the tags you want to search, please leave a blanck between them:").split()
                     includeAllTags = bool(input("\nWould yo like to obtain media that include all the tags? Write yes or no:").lower() == "yes")
                     try:
                         self.history = catalog.getTilesByTags(tags, includeAllTags, self.token)
                         self.view_last_search(catalog)
                     except IceFlix.Unauthorized:
-                        logging.error("Acceso no autorizado")
+                        logging.error("Incorrect user or password")
                     except(Ice.ObjectNotExistException,IceFlix.TemporaryUnavailable):
                         logging.error("Sorry, the catalog service is temporary unavailable")
                 else:
-                    print("La opcion introducida no es correcta") #deberia volver a dar opcion de introducirla???????????????????????
+                    print("Sorry, you have introduced an incorrect option") #deberia volver a dar opcion de introducirla???????????????????????
         
             except IceFlix.WrongMediaId as e:
                     logging.error("provided media ID is not found", str(e))
@@ -281,7 +289,7 @@ class Client(Ice.Application):
         try:
             file_service = self.main_obj.getFileService()
         except IceFlix.TemporaryUnavailable:
-            logging.error("El servicio de file no está disponible")
+            logging.error("The file service is not available")
 
         else:
             selected = self.select_last_search()
@@ -313,16 +321,16 @@ class Client(Ice.Application):
     #ADMIN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!      
 
     def add_user(self):
-        user = input("\nIntroduzca el nombre de usuario")
-        password = input("\nIntroduzca contraseña")
+        user = input("\nIntroduce the user name: ")
+        password = input("\nIntroduce the user password: ")
         password_hash = sha256(password.encode()).hexdigest()
         try:
             authenticator = self.main_obj.getAuthenticator()
         except IceFlix.TemporaryUnavailable:
-            logging.error('El servicio de autentificacion no está disponible')
+            logging.error("The authentication service is not available")
         
         if authenticator.ice_isA('::IceFlix::Authenticator') == False:
-            print("EL proxy no es de tipo Authenticator")
+            print("The proxy is not an authenticator")
         
         try:
             authenticator.addUser(user, password_hash, self.token)
@@ -331,14 +339,14 @@ class Client(Ice.Application):
                 logging.error('Provided authentication token is wrong')
     
     def delete_user(self):
-        user = input("\nIntroduzca el nombre de usuario que quiere eliminar")
+        user = input("\nIntroduce the user name you want to delete")
         try:
             authenticator = self.main_obj.getAuthenticator()
         except IceFlix.TemporaryUnavailable:
-            logging.error('El servicio de autentificacion no está disponible')
+            logging.error("The authentication service is not available")
         
         if authenticator.ice_isA('::IceFlix::Authenticator') == False:
-            print("EL proxy no es de tipo Authenticator")
+            print("The proxy is not an authenticator")
 
         try:
             authenticator.removeUser(user, self.token)
@@ -386,7 +394,7 @@ class Client(Ice.Application):
         try:
             file_service = self.main_obj.getFileService()
         except IceFlix.TemporaryUnavailable:
-            logging.error("El servicio de file no está disponible")
+            logging.error("File service unavailable")
         else:
             print("Select the media you want to delete") #ESTO SOLO LE DEJA BORRAR DE L AULTIMA BUSQUEDA
             selected = self.select_last_search() #falta pasarle el catalog
