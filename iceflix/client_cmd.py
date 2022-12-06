@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 import cmd
 from colorama import Style, Fore
-from client import Client
 class Client_cmd(cmd.Cmd):
 
     intro = Style.BRIGHT+ Fore.LIGHTMAGENTA_EX +  'Welcome to Iceflix! 😀' + Style.NORMAL + Fore.BLACK + '\nWrite "help" or "?" to see the options:'
-    client = Client()
+    
 
     def do_connect(self, _):
-        "Connects with the main"
-        if self.client.main_obj is not None:
-            print("You are already connected.")
-        else:
-            self.client.connect()
+        "Connects with main"
+        self.client.connect()
 
     #tengo que hacer de desconectar??
 
@@ -54,7 +50,7 @@ class Client_cmd(cmd.Cmd):
             self.client.admin_login()
 
             #pedir el token o como se hace este login?
-            #cuando pedimos el token isAdmin, y el nombre????????????????
+            #cuando pedimos el token isAdmin, y el nombre???????????????? el admin no tiene nombre
 
             while True:
                 print('¿What would yo like to do?')
@@ -74,8 +70,7 @@ class Client_cmd(cmd.Cmd):
                     self.client.delete_user()
 
                 elif option == '3':
-                    self.client.rename_media() #ASI FUNCIONA EN VEZ DE CON SELF.CLIENT????????????????????????????
-
+                    self.client.rename_media() 
                 elif option == '4':
                     self.client.upload_file()
                 
@@ -90,5 +85,5 @@ class Client_cmd(cmd.Cmd):
     
 
 if __name__ == '__main__':
-    app = Client_cmd()
-    app.cmdloop()
+    # app = Client_cmd()
+    # app.cmdloop()
