@@ -61,27 +61,32 @@ class Client_cmd(cmd.Cmd):
                 print('5. Remove a tile')
                 print('6. Exit administrator mode')
 
-                option = input()
-
-                if option == '1':
-                    self.client.add_user()
-
-                elif option == '2':
-                    self.client.delete_user()
-
-                elif option == '3':
-                    self.client.rename_media() 
-                elif option == '4':
-                    self.client.upload_file()
-                
-                elif option == '5':
-                    self.client.delete_media()
-
-                elif option == '6':
-                    break
-
+                try:
+                    option = input()
+                    if option> 6 or option < 0:
+                        raise ValueError
+                except ValueError:
+                    print("Incorrect option, try again please")
+                    
                 else:
-                    print("Incorrect option, please try again")
+
+                    if option == '1':
+                        self.client.add_user()
+
+                    elif option == '2':
+                        self.client.delete_user()
+
+                    elif option == '3':
+                        self.client.rename_media() 
+                    elif option == '4':
+                        self.client.upload_file()
+                    
+                    elif option == '5':
+                        self.client.delete_media()
+
+                    elif option == '6':
+                        break
+
     
 
 if __name__ == '__main__':
