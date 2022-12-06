@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import cmd
 from colorama import Style, Fore
-
+from client import Client
 class Client_cmd(cmd.Cmd):
 
     intro = Style.BRIGHT+ Fore.LIGHTMAGENTA_EX +  'Welcome to Iceflix! 😀' + Style.NORMAL + Fore.BLACK + '\nWrite "help" or "?" to see the options:'
-    
+    client = Client()
+
     def do_connect(self, _):
         "Connects with the main"
         if self.client.main_obj is not None:
@@ -47,7 +48,7 @@ class Client_cmd(cmd.Cmd):
     def do_admins_menu(self, _):
         "Shows the options of the admin"
         if self.client.main_obj is None:
-            logging.error("First you have to connect.")
+            print("First you have to connect.")
         else:
 
             self.client.admin_login()
