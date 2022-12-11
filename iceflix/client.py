@@ -66,8 +66,8 @@ class ClientCmd(cmd.Cmd):
         self.user = ""
         self.password_hash = ""
         self.token = ""
-        self.history = [] #lista de strings que obtenemos en la ultima busqueda
-        self.history_media = [] #lusta de objetos media que obtenemos en la ultima busqueda
+        self.history = [] #list of strings of the last search
+        self.history_media = [] #list of media objects of the last search
         self.define_prompt()
 
     def define_prompt(self):
@@ -108,7 +108,7 @@ class ClientCmd(cmd.Cmd):
             self.user = ""
             return
 
-        print("Successfully loged in. Enjoy!")
+        logging.info("Successfully loged in. Enjoy!")
         self.define_prompt()
 
     def do_logout(self, _):
@@ -119,7 +119,7 @@ class ClientCmd(cmd.Cmd):
         self.user = ""
         self.password_hash = ""
         self.token = ""
-        print("Successful log out. See you soon!")
+        logging.info("Successful log out. See you soon!")
         self.define_prompt()
 
     def do_catalog_search(self, _):
@@ -193,7 +193,7 @@ class ClientCmd(cmd.Cmd):
     def view_last_search(self): #history es lista de strings
         """Shows media from last search"""
         if (len(self.history) == 0):
-            logging.error("No media found.")
+            logging.info("No media found.")
             return
 
         try:
@@ -202,11 +202,11 @@ class ClientCmd(cmd.Cmd):
             logging.error("Sorry, the catalog service is temporary unavailable")
             return
         self.history_media = []
-        for tile in self.history: #para cada componente de la lista de strings
+        for tile in self.history: #for every component of the string list
             while True:
                 try:
-                    media = catalog.getTile(tile, self.token) #conseguimos el objeto media
-                    self.history_media.append(media) #en history media metemos objetos media
+                    media = catalog.getTile(tile, self.token) #we get the media object
+                    self.history_media.append(media) #history_media stores objects
                     break
                 except IceFlix.WrongMediaId:
                     logging.error("The id is incorrect")
@@ -240,15 +240,15 @@ class ClientCmd(cmd.Cmd):
                 logging.error("Incorrect option, try again please")
                 return None
             else:
-                return self.history_media[selected-1] #devuelve el objeto entero seleccionado
+                return self.history_media[selected-1] #returns the selected media object
 
     def do_edit_catalog(self, _):
         """Edits the selected media of the catalog"""
         
         if (len(self.history) == 0):
-            logging.error("\nNo media found. Please, first search media in the catalog."+
-                          " As you are not an admin you just have acces to the media " +
-                          "searched before.")
+            logging.info("\nNo media found. Please, first search media in the catalog."+
+                         " As you are not in the admin mode you just have acces to the" +
+                         " media searched before.")
             return
         try:
             catalog = self.main_obj.getCatalog()
@@ -313,9 +313,9 @@ class ClientCmd(cmd.Cmd):
     def do_download_media(self, _):
         """Downloads the selected media"""
         if (len(self.history) == 0):
-            logging.error("\nNo media found. Please, first search media in the catalog."+
-                          " As you are not an admin you just have acces to the media " +
-                          "searched before.")
+            logging.info("\nNo media found. Please, first search media in the catalog."+
+                         " As you are not in the admin mode you just have acces to the"+
+                         " media searched before.")
             return
         try:
             file_service = self.main_obj.getFileService()
@@ -323,8 +323,8 @@ class ClientCmd(cmd.Cmd):
             logging.error("The file service is not available")
             return
 
-        selected = self.select_last_search()
         print("Introduce el media id you want to download:")
+        selected = self.select_last_search()
         while True:
             try:
                 file_handler = file_service.openFile(selected.mediaId, self.token)
@@ -340,11 +340,12 @@ class ClientCmd(cmd.Cmd):
                 if len(received) == 0:
                     break
                 file_descriptor.write(received)
-        file_handler.close(self.token)#metoo del slice
+        file_handler.close(self.token)
 
 
-    def request_new_token(self):#llamar cada vez que sale la excepcion de unauthorised
-        """Request a new token if it has been revoqued"""
+    def request_new_token(self):
+        """Request a new token if it has been revoqued, we call this method everytime
+           we catch the exception Unauthorised"""
         try:
             authenticator = self.main_obj.getAuthenticator()
         except(IceFlix.TemporaryUnavailable):
@@ -364,7 +365,7 @@ class ClientCmd(cmd.Cmd):
 
     def do_exit(self, _):
         """Exits from the cmd"""
-        print("Saliendo...")
+        print("Exit...")
         self.comm.waitForShutdown()
         return True
 
@@ -372,6 +373,7 @@ class ClientCmd(cmd.Cmd):
 class AdminCmd(cmd.Cmd):
     """Administrator cmd"""
     intro = Style.NORMAL + Fore.BLACK + '\nWelcome to the administrator mode'
+    prompt = Style.NORMAL + Fore.BLACK + 'Admin mode'
 
 
     def __init__(self, main, comm):
@@ -391,9 +393,7 @@ class AdminCmd(cmd.Cmd):
         else:
             self.admintoken = getpass.getpass(prompt='Please write your admin token:')
             is_admin = authenticator.isAdmin(self.admintoken)
-            print(is_admin)
             if(is_admin):
-                print("aqui dentro")
                 print("Successfully loged in. Enjoy!")
             else:
                 logging.error("You are not an admin")
@@ -436,11 +436,11 @@ class AdminCmd(cmd.Cmd):
             logging.error("Sorry, the catalog service is temporary unavailable")
             return
 
-        mediaid_str = input("Introduce the mediaId you eant to rename")
+        mediaid_str = input("Introduce the mediaId you want to rename: ")
         new_name = input("Write the new name please: ")
         try:
             catalog.renameTile(mediaid_str, new_name, self.admintoken)
-            print("Name changed successfuly")
+            logging.info("Name changed successfuly")
         except IceFlix.Unauthorized:
             logging.error("Provided user token is wrong")
         except IceFlix.WrongMediaId:
@@ -448,7 +448,7 @@ class AdminCmd(cmd.Cmd):
 
     def do_upload_media(self, _):
         """Uploads the media that corresponds to the path, given as an input"""
-        file_name = input("Write the file route:")
+        file_name = input("Write the file path: ")
         try:
             fu_servant = FileUploaderServant(file_name)
         except FileNotFoundError:
@@ -480,7 +480,7 @@ class AdminCmd(cmd.Cmd):
             mediaid_str = input("Introduce mediaId you want to delete: ")
             try:
                 file_service.removeFile(mediaid_str, self.admintoken)
-                logging.info("Seuccessfully deleted")
+                logging.info("Successfully deleted")
             except IceFlix.Unauthorized:
                 logging.error("Provided user token is wrong")
                 return
