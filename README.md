@@ -4,7 +4,14 @@ Para comenzar, tenemos que instalar el módulo y las dependecias. Para ello ejec
 
 Después para ejecutar, simplemente ejecutamos `./run_client`, ya que está configurado para que setup.cfg, cli.py y run_client se comuniquen de forma que todo se ejecute correctamente. 
 
-Una vez ejecutamos el código, nos pedirá el proxy del main para poder conectarse dejando tres intentos. 
+Una vez ejecutamos el código, nos pedirá el proxy del main para poder conectarse dejando tres intentos al cliente. Cuando nos hemos conectado, nos aparece un cmd, si escribimos 'help' o '?' veremos las opciones disponibles. Cuando el cliente está escribiendo la opción, se le permite autocompletar el nombre de dicha opción pulsando el tabulador. 
+
+Tras seleccionar una de las opciones, hay que seguir los pasos que van apareciendo por pantalla para conseguir la funcionalidad solicitada.
+
+
+Destacamos que una de estas opciones es el menu administrador, si la elegimos nos pedirá el adminToken y si este es correcto nos aparecerá otra cmd de administradores con nuevas opciones. Siempre podemos volver a la terminal del cliente seleccionando la opción exit.
+
+Un detalle de la implementación es que en los métodos del cliente normal solo te deja ver y editar los objetos media de la última búsqueda, sin embargo en el modo administrador nos solicitará por pantalla el mediaId de cualquier objeto media que queramos manipular. Esto sigue la lógica de que el administrador tiene acceso a cualquier parte de IceFlix.
 
 # Template project for ssdd-lab
 
