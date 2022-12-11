@@ -1,3 +1,11 @@
+# MANUAL DE USUARIO
+
+Para comenzar, tenemos que instalar el módulo y las dependecias. Para ello ejecutamos `pip intall -e .` , con esto conseguimos instalarnos lo que aparece en setup.cfg. Es preferible realizar esto en un entorno virtual.
+
+Después para ejecutar, simplemente ejecutamos `./run_client`, ya que está configurado para que setup.cfg, cli.py y run_client se comuniquen de forma que todo se ejecute correctamente. 
+
+Una vez ejecutamos el código, nos pedirá el proxy del main para poder conectarse dejando tres intentos. 
+
 # Template project for ssdd-lab
 
 This repository is a Python project template.
