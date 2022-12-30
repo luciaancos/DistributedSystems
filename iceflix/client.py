@@ -32,15 +32,25 @@ class Announcer(IceFlix.Announcement):
             print("llega algo y es un main")
             self.main_proxys[service_proxy]=(time.time())
     def check_dicc(self):
-        copia = self.main_proxys.copy()
-        for proxy in copia:
-            if time.time()- proxy[1] > 10:
-                del self.main_proxys[proxy]
+        while True:
+            copia = self.main_proxys.copy()
+            print("lo que copio")
+            print(copia)
+            for proxy, timestamp in copia.items():
+                print("ELEMENTOS DE COPIAAAA:")
+                print(proxy)
+                print(timestamp)
+                if time.time()- timestamp > 10:
+                    del self.main_proxys[proxy]
+                    print("lo ha borrado")
 
-            try:
-                proxy[0].ice_ping()
-            except IceFlix.TemporaryUnavailable:
-                del self.main_proxys[proxy]
+                try:
+                    proxy.ice_ping()
+                except (IceFlix.TemporaryUnavailable, Ice.ConnectionRefusedException):
+                    del self.main_proxys[proxy]
+                    print("lo ha borrado")
+                    print(copia)
+            time.sleep(4)
 
     
                 
@@ -76,16 +86,14 @@ class Client(Ice.Application):
         comm = self.communicator()
         
         self.servant = Announcer()
-        hilo_tiempo_main = threading.Thread(
-            target=self.servant.check_dicc, daemon=True)
-        hilo_tiempo_main.start()
+        
     #reintento con el topic manager
 
         adapter = comm.createObjectAdapter("ClientAdapter") #qque tipo de adaptador tengo que hacer, pq luego tengo que mandar un proxy mio en el suscribe???
         adapter.activate()
         proxy = adapter.addWithUUID(self.servant)
         topic_manager_str_prx = comm.propertyToProxy("topicManager")
-        topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx)
+        topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx) #aqui habria que controlar la excepcion Ice.ConnectionRefusedException
 
         if not topic_manager:
             raise RuntimeError("Invalid TopicManager proxy")
@@ -112,7 +120,9 @@ class Client(Ice.Application):
 
                         if main_obj:
                             print("Successfully connected")
-                            hilo_reconectar = threading.Thread(target=self.actual, args=(main_proxy), daemon=True)
+                            hilo_tiempo_main = threading.Thread(target=self.servant.check_dicc, daemon=True)
+                            hilo_tiempo_main.start()
+                            hilo_reconectar = threading.Thread(target=self.actual, args=(main_proxy,), daemon=True)
                             hilo_reconectar.start()
 
                             self.client_cmd = ClientCmd(main_obj, comm, adapter)
@@ -144,22 +154,29 @@ class Client(Ice.Application):
         
 
     def actual(self,main_proxy):
-        try:
-            print("esta haciendo el hilo")
-            main_proxy.ice_ping()
-        except IceFlix.TemporaryUnavailable:
-            if len(self.servant.main_proxys) !=0: 
-                main_proxy = random.choice(list(self.servant.main_proxys.items()))
-                try:      
-                    main_obj = IceFlix.MainPrx.checkedCast(main_proxy[0])
-                    self.client_cmd.main_obj=main_obj
-                    main_proxy=main_obj
-                except Ice.NoEndpointException:
-                        print("Sorry, it does not connect")
-               
-            else:
-                print("Waiting for an available main service")
-                time.sleep(3)
+        while True:
+            try:
+                print("esta haciendo el hilo")
+                main_proxy[0].ice_ping()
+                print("el ice ping")
+                print(main_proxy[0].ice_ping())
+            except (IceFlix.TemporaryUnavailable, Ice.ConnectionRefusedException):
+                print("se mete en el except")
+                if len(self.servant.main_proxys) !=0: 
+                    print("el diccionario esta asi:")
+                    print(self.servant.main_proxys)
+                    main_proxy = random.choice(list(self.servant.main_proxys.items()))
+                    try:      
+                        main_obj = IceFlix.MainPrx.checkedCast(main_proxy[0])
+                        self.client_cmd.main_obj=main_obj
+                        main_proxy=main_proxy[0]
+                    except (Ice.NoEndpointException, Ice.ConnectionRefusedException):
+                            print("Sorry, it does not connect")
+                
+                else:
+                    print("Waiting for an available main service")
+                    time.sleep(3)
+            time.sleep(3)
             
 
     
