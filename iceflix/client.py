@@ -1,5 +1,9 @@
+"Client implementation"
+
 #!/usr/bin/env python3
 import logging
+
+
 import random
 import sys
 import getpass
@@ -21,60 +25,102 @@ except ImportError:
     import IceFlix
 
 
+# pylint: disable=C0103
+# pylint: disable=W0613
+# pylint: disable=E1101
+#because we can not change the names and arguments of the topic methods
+
+
 class Announcer(IceFlix.Announcement):
+    "Servant for announcement interface"
     def __init__(self):
         self.main_proxys = {}
-    def announce(self,service_proxy, serviceId,current):
-        print("llega algo")
-        print(service_proxy, flush=True)
-        print(serviceId, flush=True)
+
+    def announce(self, service_proxy, serviceId, current):
+        "Saves all the main proxys that announce in the topic"
         if service_proxy.ice_isA('::IceFlix::Main'):
-            print("llega algo y es un main")
-            self.main_proxys[service_proxy]=(time.time())
-    def check_dicc(self):
+
+            self.main_proxys[service_proxy] = (time.time())
+
+
+    def check_dicc(self, client_cmd, servant):
+        "Checks if the saved main proxys are availables"
+        imprimir = False
         while True:
             copia = self.main_proxys.copy()
-            print("lo que copio")
-            print(copia)
+            if len(servant.main_proxys) == 0:
+                print("Waiting for an available main service...")
+                imprimir = True
+                time.sleep(3)
             for proxy, timestamp in copia.items():
-                print("ELEMENTOS DE COPIAAAA:")
-                print(proxy)
-                print(timestamp)
-                if time.time()- timestamp > 10:
-                    del self.main_proxys[proxy]
-                    print("lo ha borrado")
+                if int(time.time()- timestamp) > 11:
+                    copia.pop(proxy)
+                    self.main_proxys = copia
+                    break #queremos que se salga del for para que se copie y tenga la logitud nueva
 
                 try:
                     proxy.ice_ping()
+                   
+                    if len(servant.main_proxys) == 1:
+                        main_proxy = random.choice(list(servant.main_proxys.items()))
+                        try:
+                            main_obj = IceFlix.MainPrx.checkedCast(main_proxy[0])
+                            client_cmd.main_obj = main_obj
+                            main_proxy = main_proxy[0]
+                            if imprimir == True:
+                                print("You can continue.")
+                                imprimir = False
+                        except (Ice.ConnectionRefusedException, Ice.NoEndpointException):
+                            break
                 except (IceFlix.TemporaryUnavailable, Ice.ConnectionRefusedException):
-                    del self.main_proxys[proxy]
-                    print("lo ha borrado")
-                    print(copia)
-            time.sleep(4)
 
-    
-                
+                    if len(servant.main_proxys) != 0:
+                        main_proxy = random.choice(list(servant.main_proxys.items()))
+                        try:
+                            main_obj = IceFlix.MainPrx.checkedCast(main_proxy[0])
+                            client_cmd.main_obj = main_obj
+                            main_proxy = main_proxy[0]
+                            if imprimir == True:
+                                print("You can continue.")
+                                imprimir = False
+                        except (Ice.ConnectionRefusedException, Ice.NoEndpointException):
+                            break
+                    else:
+                        print("Waiting for an available main service...")
+                        imprimir = True
+                        time.sleep(3)
+
 
 class AuthenChannel(IceFlix.UserUpdate):
+    "Servant for UserUpdate interface"
     def newToken(self, user, token, service_id, current):
-        print("The user: ", user, "has the new token: ", token, ". Service who change it: ", service_id)
+        "Prints info"
+        print("The user: ", user, "has the new token: ", token, ".")
     def newUser(self, user, passwordHash, serviceId, current):
-        print("A new user has been added: ", user, ". Service who change it: ", serviceId)
-    def removeUser(self, user,serviceId, current):
+        "Prints info"
+        print("A new user has been added: ", user, ".")
+    def removeUser(self, user, serviceId, current):
+        "Prints info"
         print("User ", user, "has been removed.")
 
 class CatalogChannel(IceFlix.CatalogUpdate):
+    "Servant for CatalogUpdate interface"
     def renameTile(self, mediaId, newName, serviceId, current):
+        "Prints info"
         print(mediaId, "has chenged it name to", newName)
     def addTags(self, mediaId, user, tags, serviceId, current):
-        print("The media: ", mediaId, "from user: ", user, "have added the tags: ",end=' ')
+        "Prints info"
+        print("The media: ", mediaId, "from user: ", user, "have added the tags: ", end=' ')
         print(', '.join(tags))
     def removeTags(self, mediaId, user, tags, serviceId, current):
-        print("The media: ", mediaId, "from user: ", user, "have deleted the tags: ",end=' ')
+        "Prints info"
+        print("The media: ", mediaId, "from user: ", user, "have deleted the tags: ", end=' ')
         print(', '.join(tags))
 
-class FileChannel(IceFlix. FileAvailabilityAnnounce):
+class FileChannel(IceFlix.FileAvailabilityAnnounce):
+    "Servant for FileAvailabilityAnnounce interface"
     def announceFiles(self, mediaIds, serviceId, current):
+        "Prints info"
         print("Available files: ", end=' ')
         print(', '.join(mediaIds))
 
@@ -82,21 +128,29 @@ class Client(Ice.Application):
     """CLient Ice Aplication"""
 
     def run(self, args):
-        print("Principio")
         comm = self.communicator()
-        
+
         self.servant = Announcer()
-        
+
     #reintento con el topic manager
 
-        adapter = comm.createObjectAdapter("ClientAdapter") #qque tipo de adaptador tengo que hacer, pq luego tengo que mandar un proxy mio en el suscribe???
+        adapter = comm.createObjectAdapter("ClientAdapter")
         adapter.activate()
         proxy = adapter.addWithUUID(self.servant)
         topic_manager_str_prx = comm.propertyToProxy("topicManager")
-        topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx) #aqui habria que controlar la excepcion Ice.ConnectionRefusedException
 
-        if not topic_manager:
-            raise RuntimeError("Invalid TopicManager proxy")
+        for i in range(3):
+            try:
+                topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx)
+
+                if not topic_manager:
+                    print("Retrying to connect...")
+                    raise RuntimeError("Invalid TopicManager proxy")
+                else:
+                    break
+            except Ice.ConnectionRefusedException:
+                logging.error("the topic is not available")
+                break
 
         topic_name = "Announcements"
         try:
@@ -108,84 +162,44 @@ class Client(Ice.Application):
         topic.subscribeAndGetPublisher(qos, proxy)
 
         while True:
-            if len(self.servant.main_proxys) !=0:
-                print("se mete en el if")
-                for i in range(3):
-                    main_proxy = random.choice(list(self.servant.main_proxys.items()))
-                    print(main_proxy)
+            if len(self.servant.main_proxys) != 0:
 
-                    try:
-                        
-                        main_obj = IceFlix.MainPrx.checkedCast(main_proxy[0])
+                main_proxy = random.choice(list(self.servant.main_proxys.items()))
 
-                        if main_obj:
-                            print("Successfully connected")
-                            hilo_tiempo_main = threading.Thread(target=self.servant.check_dicc, daemon=True)
-                            hilo_tiempo_main.start()
-                            hilo_reconectar = threading.Thread(target=self.actual, args=(main_proxy,), daemon=True)
-                            hilo_reconectar.start()
+                try:
+                    main_obj = IceFlix.MainPrx.checkedCast(main_proxy[0])
 
-                            self.client_cmd = ClientCmd(main_obj, comm, adapter)
-                            threading.Thread(target=self.client_cmd.cmdloop, daemon=True).start()
+                    if main_obj:
+                        print("Successfully connected")
 
-                            comm.waitForShutdown()
-                            break
-                        else:
-                            print("Incorrect proxy. Please try again, ", 2-i, "remaining oportunities.")
-                            print("Trying again...")
-                            time.sleep(3)
-                            return
-                    except Ice.NoEndpointException:
-                        print("Sorry, it does not connect,", 2-i, "remaining oportunities.")
-                        print("Trying again...")
-                        time.sleep(3)
-                    except (IceFlix.TemporaryUnavailable):
-                        logging.error("Sorry, the main service is not available")
-                        print("Please try again, ", 2-i, "remaining oportunities.")
-                        print("Trying again...")
-                        time.sleep(3)
-                break
+                        self.client_cmd = ClientCmd(main_obj, comm, adapter)
+
+                        hilo_tiempo_main = threading.Thread(target=self.servant.check_dicc,
+                                                            args=(self.client_cmd, self.servant,),
+                                                            daemon=True)
+                        hilo_tiempo_main.start()
+
+                        threading.Thread(target=self.client_cmd.cmdloop, daemon=True).start()
+
+                        break
+
+                except (Ice.NoEndpointException, IceFlix.TemporaryUnavailable):
+                    logging.error("Sorry, the main service is not available")
+
             else:
-                print("vacio")
-                print(self.servant.main_proxys)
-                print("Waiting for an available main service")
+                print("Waiting for an available main service...")
                 time.sleep(3)
 
-        
+        self.shutdownOnInterrupt()
+        comm.waitForShutdown()
+        topic.unsubscribe(proxy)
 
-    def actual(self,main_proxy):
-        while True:
-            try:
-                print("esta haciendo el hilo")
-                main_proxy[0].ice_ping()
-                print("el ice ping")
-                print(main_proxy[0].ice_ping())
-            except (IceFlix.TemporaryUnavailable, Ice.ConnectionRefusedException):
-                print("se mete en el except")
-                if len(self.servant.main_proxys) !=0: 
-                    print("el diccionario esta asi:")
-                    print(self.servant.main_proxys)
-                    main_proxy = random.choice(list(self.servant.main_proxys.items()))
-                    try:      
-                        main_obj = IceFlix.MainPrx.checkedCast(main_proxy[0])
-                        self.client_cmd.main_obj=main_obj
-                        main_proxy=main_proxy[0]
-                    except (Ice.NoEndpointException, Ice.ConnectionRefusedException):
-                            print("Sorry, it does not connect")
-                
-                else:
-                    print("Waiting for an available main service")
-                    time.sleep(3)
-            time.sleep(3)
-            
-
-    
 
 class ClientCmd(cmd.Cmd):
     """Class client using cmd"""
 
     intro = (Style.BRIGHT+ Fore.LIGHTMAGENTA_EX +  'Welcome to Iceflix! 😀' + Style.NORMAL +
-             Fore.BLACK + '\nWrite "help" or "?" to see the options:')
+             Fore.WHITE + '\nWrite "help" or "?" to see the options:')
 
     def __init__(self, main_obj, comm, adapter):
         super(ClientCmd, self).__init__()
@@ -203,21 +217,21 @@ class ClientCmd(cmd.Cmd):
     def define_prompt(self):
         """Defines the format of the prompt message"""
         if self.main_obj is None:
-            self.prompt = Style.NORMAL + Fore.BLACK + 'Disconnected'
+            self.prompt = Style.NORMAL + Fore.WHITE + 'Disconnected'
         if self.main_obj is not None:
             if self.token == "":
-                self.prompt = (Style.NORMAL + Fore.BLACK + '(Connected, '
-                               + Style.NORMAL + Fore.BLACK + ' not logged) > ')
+                self.prompt = (Style.NORMAL + Fore.WHITE + '(Connected, '
+                               + Style.NORMAL + Fore.WHITE + ' not logged) > ')
             else:
-                self.prompt = (Style.NORMAL + Fore.BLACK + '(Connected, '
-                               + Style.NORMAL + Fore.BLACK + 'user: ' + self.user + ') > ')
+                self.prompt = (Style.NORMAL + Fore.WHITE + '(Connected, '
+                               + Style.NORMAL + Fore.WHITE + 'user: ' + self.user + ') > ')
 
 
 
     def do_login(self, _):
         """Logs in the user"""
         if self.user != "":
-            logging.error("There is a user already loggin, please try to log out if you want to change.")
+            logging.error("There is a user already loggin, please try to log out first.")
             return
 
         if self.main_obj is None:
@@ -225,7 +239,7 @@ class ClientCmd(cmd.Cmd):
             return
         try:
             authenticator = self.main_obj.getAuthenticator()
-        except(IceFlix.TemporaryUnavailable):
+        except IceFlix.TemporaryUnavailable:
             logging.error("Sorry, the autentificacion service is temporary unavailable")
             return
         self.user = input("Introduce the user name: ")
@@ -262,7 +276,7 @@ class ClientCmd(cmd.Cmd):
 
         try:
             catalog = self.main_obj.getCatalog()
-        except(IceFlix.TemporaryUnavailable):
+        except IceFlix.TemporaryUnavailable:
             logging.error('Sorry, the catalog service is temporary unavailable')
             return
 
@@ -313,7 +327,7 @@ class ClientCmd(cmd.Cmd):
                 break
             except IceFlix.Unauthorized:
                 self.request_new_token()
-            except(IceFlix.TemporaryUnavailable):
+            except IceFlix.TemporaryUnavailable:
                 logging.error('Sorry, the catalog service is temporary unavailable')
                 return
 
@@ -330,7 +344,7 @@ class ClientCmd(cmd.Cmd):
 
         try:
             catalog = self.main_obj.getCatalog()
-        except(IceFlix.TemporaryUnavailable):
+        except IceFlix.TemporaryUnavailable:
             logging.error("Sorry, the catalog service is temporary unavailable")
             return
         self.history_media = []
@@ -376,7 +390,7 @@ class ClientCmd(cmd.Cmd):
 
     def do_edit_catalog(self, _):
         """Edits the selected media of the catalog"""
-        
+
         if (len(self.history) == 0):
             logging.info("\nNo media found. Please, first search media in the catalog."+
                          " As you are not in the admin mode you just have acces to the" +
@@ -384,7 +398,7 @@ class ClientCmd(cmd.Cmd):
             return
         try:
             catalog = self.main_obj.getCatalog()
-        except(IceFlix.TemporaryUnavailable):
+        except IceFlix.TemporaryUnavailable:
             logging.error("Sorry, the catalog service is temporary unavailable")
             return
 
@@ -480,7 +494,7 @@ class ClientCmd(cmd.Cmd):
            we catch the exception Unauthorised"""
         try:
             authenticator = self.main_obj.getAuthenticator()
-        except(IceFlix.TemporaryUnavailable):
+        except IceFlix.TemporaryUnavailable:
             logging.error("Sorry, the autentificacion service is temporary unavailable")
             return
 
@@ -498,14 +512,14 @@ class ClientCmd(cmd.Cmd):
     def do_exit(self, _):
         """Exits from the cmd"""
         print("Exit...")
-        self.comm.waitForShutdown()
+        print("press ctrl + c to finish")
         return True
 
 
 class AdminCmd(cmd.Cmd):
     """Administrator cmd"""
     intro = Style.NORMAL + Fore.BLACK + '\nWelcome to the administrator mode'
-    prompt = Style.NORMAL + Fore.BLACK + 'Admin mode'
+    prompt = Style.NORMAL + Fore.BLACK + '(Admin mode) > '
 
 
     def __init__(self, main, comm, adapter):
@@ -520,13 +534,13 @@ class AdminCmd(cmd.Cmd):
         """Logs in as an admin, with the admin token"""
         try:
             authenticator = self.main_obj.getAuthenticator()
-        except(IceFlix.TemporaryUnavailable):
+        except IceFlix.TemporaryUnavailable:
             logging.error("Sorry, the autentificacion service is temporary unavailable")
             return
         else:
             self.admintoken = getpass.getpass(prompt='Please write your admin token:')
             is_admin = authenticator.isAdmin(self.admintoken)
-            if(is_admin):
+            if is_admin:
                 print("Successfully loged in. Enjoy!")
             else:
                 logging.error("You are not an admin")
@@ -565,7 +579,7 @@ class AdminCmd(cmd.Cmd):
         """Rename media introducind the media id"""
         try:
             catalog = self.main_obj.getCatalog()
-        except(IceFlix.TemporaryUnavailable):
+        except IceFlix.TemporaryUnavailable:
             logging.error("Sorry, the catalog service is temporary unavailable")
             return
 
@@ -587,14 +601,10 @@ class AdminCmd(cmd.Cmd):
         except FileNotFoundError:
             logging.error("File not found")
             return
-        adapter = self.comm.createObjectAdapterWithEndpoints("FileAdapter", "tcp") #hacerlo sin with end points porque ya lo coge del config?????
-        
-        
-        #hacer en el run y asi no hay que crear cada vez uno !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-        #mirar como limpiar el adaptador de obj!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! urrent.adapter.remove(current.id)
-        proxy = adapter.addWithUUID(fu_servant)
+
+        proxy = self.adapter.addWithUUID(fu_servant)
         uploader_proxy = IceFlix.FileUploaderPrx.uncheckedCast(proxy)
-        adapter.activate()
+
 
         try:
             file_service = self.main_obj.getFileService()
@@ -626,6 +636,9 @@ class AdminCmd(cmd.Cmd):
                 return
 
     def do_suscribeAuthenticatorChannel(self, _):
+        "Suscribes to UserUpdates channel"
+
+        print("Press 'q' + enter if you want to unsuscribe")
 
         servant = AuthenChannel()
         #self.adapter.activate()
@@ -644,13 +657,18 @@ class AdminCmd(cmd.Cmd):
 
         qos = {}
         topic.subscribeAndGetPublisher(qos, proxy)
+        while True:
+            tecla = input()
+            if tecla == 'q':
+                # Salimos del método si el usuario pulsa 'q'
+                topic.unsubscribe(proxy)
+                break
 
-        #COMO ELIGE EL CLIENTE CUANDO SE DESUSUCRIBE
-    
     def do_suscribeCatalogChannel(self, _):
+        "Suscribes to CatalogUpdates channel"
+        print("Press 'q' + enter if you want to unsuscribe")
 
         servant = CatalogChannel()
-        #self.adapter.activate()
         proxy = self.adapter.addWithUUID(servant)
         topic_manager_str_prx = self.comm.propertyToProxy("topicManager")
         topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx)
@@ -667,12 +685,18 @@ class AdminCmd(cmd.Cmd):
         qos = {}
         topic.subscribeAndGetPublisher(qos, proxy)
 
-        #COMO ELIGE EL CLIENTE CUANDO SE DESUSUCRIBE
+        while True:
+            tecla = input()
+            if tecla == 'q':
+                # Salimos del método si el usuario pulsa 'q'
+                topic.unsubscribe(proxy)
+                break
 
     def do_suscribeFileChannel(self, _):
+        "Suscribes to FileAvailabilityAnnounce channel"
+        print("Press 'q' + enter if you want to unsuscribe")
 
         servant = FileChannel()
-        #self.adapter.activate()
         proxy = self.adapter.addWithUUID(servant)
         topic_manager_str_prx = self.comm.propertyToProxy("topicManager")
         topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx)
@@ -689,7 +713,12 @@ class AdminCmd(cmd.Cmd):
         qos = {}
         topic.subscribeAndGetPublisher(qos, proxy)
 
-        #COMO ELIGE EL CLIENTE CUANDO SE DESUSUCRIBE
+        while True:
+            tecla = input()
+            if tecla == 'q':
+                # Salimos del método si el usuario pulsa 'q'
+                topic.unsubscribe(proxy)
+                break
 
     def do_exit(self, _):
         """Exit from the admin mode"""
@@ -715,4 +744,4 @@ class FileUploaderServant(IceFlix.FileUploader):
         current.adapter.remove(current.id)
 
 if __name__ == '__main__':#no se usa si se usa los configs
-            sys.exit(Client().main(sys.argv))
+    sys.exit(Client().main(sys.argv))
