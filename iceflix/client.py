@@ -528,6 +528,7 @@ class AdminCmd(cmd.Cmd):
         self.comm = comm
         self.adapter = adapter
         self.admintoken = ""
+        self.admintoken_hash = ""
         self.adminlogin()
 
     def adminlogin(self):
@@ -539,7 +540,8 @@ class AdminCmd(cmd.Cmd):
             return
         else:
             self.admintoken = getpass.getpass(prompt='Please write your admin token:')
-            is_admin = authenticator.isAdmin(self.admintoken)
+            self.admintoken_hash = sha256(self.admintoken.encode()).hexdigest()
+            is_admin = authenticator.isAdmin(self.admintoken_hash)
             if is_admin:
                 print("Successfully loged in. Enjoy!")
             else:
@@ -556,7 +558,7 @@ class AdminCmd(cmd.Cmd):
             logging.error("The authentication service is not available")
 
         try:
-            authenticator.addUser(user, password_hash, self.admintoken)
+            authenticator.addUser(user, password_hash, self.admintoken_hash)
             print("The user has been added")
         except IceFlix.Unauthorized:
             logging.error('Provided authentication token is wrong')
@@ -570,7 +572,7 @@ class AdminCmd(cmd.Cmd):
             logging.error("The authentication service is not available")
 
         try:
-            authenticator.removeUser(user, self.admintoken)
+            authenticator.removeUser(user, self.admintoken_hash)
             print("The user has been removed")
         except IceFlix.Unauthorized:
             logging.error('Provided authentication token is wrong')
@@ -586,7 +588,7 @@ class AdminCmd(cmd.Cmd):
         mediaid_str = input("Introduce the mediaId you want to rename: ")
         new_name = input("Write the new name please: ")
         try:
-            catalog.renameTile(mediaid_str, new_name, self.admintoken)
+            catalog.renameTile(mediaid_str, new_name, self.admintoken_hash)
             logging.info("Name changed successfuly")
         except IceFlix.Unauthorized:
             logging.error("Provided user token is wrong")
@@ -612,7 +614,7 @@ class AdminCmd(cmd.Cmd):
             logging.error("File service unavailable")
         else:
             try:
-                file_service.uploadFile(uploader_proxy, self.admintoken)
+                file_service.uploadFile(uploader_proxy, self.admintoken_hash)
                 logging.info("The file has been uploades successfully")
             except IceFlix.Unauthorized:
                 logging.error("Provided user token is wrong")
@@ -626,7 +628,7 @@ class AdminCmd(cmd.Cmd):
         else:
             mediaid_str = input("Introduce mediaId you want to delete: ")
             try:
-                file_service.removeFile(mediaid_str, self.admintoken)
+                file_service.removeFile(mediaid_str, self.admintoken_hash)
                 logging.info("Successfully deleted")
             except IceFlix.Unauthorized:
                 logging.error("Provided user token is wrong")
@@ -723,6 +725,7 @@ class AdminCmd(cmd.Cmd):
     def do_exit(self, _):
         """Exit from the admin mode"""
         self.admintoken = ""
+        self.admintoken_hash = ""
         print("saliendo del admin")
         return True
 
