@@ -2,4 +2,3 @@
 
 iceflix --Ice.Config=configs/client.config
 
-#bash -c "python3 iceflix/client.py --Ice.Config=configs/client.config;"
