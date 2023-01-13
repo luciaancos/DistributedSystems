@@ -13,6 +13,11 @@ Destacamos que una de estas opciones es el menu administrador, si la elegimos no
 
 Un detalle de la implementación es que en los métodos del cliente normal solo te deja ver y editar los objetos media de la última búsqueda, sin embargo en el modo administrador nos solicitará por pantalla el mediaId de cualquier objeto media que queramos manipular. Esto sigue la lógica de que el administrador tiene acceso a cualquier parte de IceFlix.
 
+## Segunda entrega
+
+El funcionamiento sigue igual, pero ahora al ejecutarlo esperará a encontrar algún servicio main disponible.
+Si se da el caso en el que nos hemos conseguido conectar a un main, pero después no es posible realizar la conexión con él, el programa automaticamente elige otro disponible. Si se queda sin ninguno disponible esperará a que vuelva a poder conectarse y cuando lo consigue lo indica con el mensaje de "You can continue"
+
 # Template project for ssdd-lab
 
 This repository is a Python project template.
