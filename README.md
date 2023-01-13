@@ -16,7 +16,8 @@ Un detalle de la implementación es que en los métodos del cliente normal solo 
 ## Segunda entrega
 
 El funcionamiento sigue igual, pero ahora al ejecutarlo esperará a encontrar algún servicio main disponible.
-Si se da el caso en el que nos hemos conseguido conectar a un main, pero después no es posible realizar la conexión con él, el programa automaticamente elige otro disponible. Si se queda sin ninguno disponible esperará a que vuelva a poder conectarse y cuando lo consigue lo indica con el mensaje de "You can continue"
+
+Si se da el caso en el que nos hemos conseguido conectar a un main, pero después no es posible realizar la conexión con él, el programa automaticamente elige otro disponible. Si se queda sin ninguno disponible, esperará a que vuelva a poder conectarse y cuando lo consigue lo indica con el mensaje de "You can continue"
 
 # Template project for ssdd-lab
 
