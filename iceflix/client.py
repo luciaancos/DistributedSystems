@@ -95,34 +95,52 @@ class AuthenChannel(IceFlix.UserUpdate):
     "Servant for UserUpdate interface"
     def newToken(self, user, token, service_id, current):
         "Prints info"
-        print("The user: ", user, "has the new token: ", token, ".")
-    def newUser(self, user, passwordHash, serviceId, current):
+        print("The user: ", user, "has the new token: ", token, ". Changed by the authenticator:", service_id)
+    def newUser(self, user, password_hash, service_id, current):
         "Prints info"
-        print("A new user has been added: ", user, ".")
-    def removeUser(self, user, serviceId, current):
+        print("A new user : ", user, " with the password: ", password_hash, " has been added by the athenticator: ", service_id)
+    def removeUser(self, user, service_id, current):
         "Prints info"
-        print("User ", user, "has been removed.")
+        print("User ", user, "has been removed by the authenticator: ", service_id)
 
 class CatalogChannel(IceFlix.CatalogUpdate):
     "Servant for CatalogUpdate interface"
-    def renameTile(self, mediaId, newName, serviceId, current):
+    def renameTile(self, mediaId, newName, service_id, current):
         "Prints info"
-        print(mediaId, "has chenged it name to", newName)
-    def addTags(self, mediaId, user, tags, serviceId, current):
+        print(mediaId, "has chenged it name to", newName, " by the catalog service: ", service_id)
+    def addTags(self, mediaId, user, tags, service_id, current):
         "Prints info"
-        print("The media: ", mediaId, "from user: ", user, "have added the tags: ", end=' ')
+        print("The media: ", mediaId, "from user: ", user, " have added the tags: ", end=' ')
         print(', '.join(tags))
-    def removeTags(self, mediaId, user, tags, serviceId, current):
+        print("Made by the catalog service: ", service_id)
+    def removeTags(self, mediaId, user, tags, service_id, current):
         "Prints info"
-        print("The media: ", mediaId, "from user: ", user, "have deleted the tags: ", end=' ')
+        print("The media: ", mediaId, "from user: ", user, " have deleted the tags: ", end=' ')
         print(', '.join(tags))
+        print("Made by the catalog service: ", service_id)
 
 class FileChannel(IceFlix.FileAvailabilityAnnounce):
     "Servant for FileAvailabilityAnnounce interface"
-    def announceFiles(self, mediaIds, serviceId, current):
+    def announceFiles(self, mediaIds, service_id, current):
         "Prints info"
         print("Available files: ", end=' ')
         print(', '.join(mediaIds))
+        print("Made by the catalog service: ", service_id)
+
+
+class AnnounceChannel(IceFlix.Announcement):
+    "Servant for Announcement interface"
+    def announce(self, service_proxy, serviceId, current):
+        "Prints info"
+        if service_proxy.ice_isA('::IceFlix::Main'):
+            print("The main service ", service_proxy, " with an id: ", serviceId, " has announced")
+        if service_proxy.ice_isA('::IceFlix::Authenticator'):
+            print("The authenticator service ", service_proxy, " with an id: ", serviceId, " has announced")
+        if service_proxy.ice_isA('::IceFlix::MediaCatalog'):
+            print("The catalog service ", service_proxy, " with an id: ", serviceId, " has announced")
+        if service_proxy.ice_isA('::IceFlix::FileService'):
+            print("The file service ", service_proxy, " with an id: ", serviceId, " has announced")
+
 
 class Client(Ice.Application):
     """CLient Ice Aplication"""
@@ -139,6 +157,7 @@ class Client(Ice.Application):
         proxy = adapter.addWithUUID(self.servant)
         topic_manager_str_prx = comm.propertyToProxy("topicManager")
 
+        counter = 0
         for i in range(3):
             try:
                 topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx)
@@ -150,7 +169,12 @@ class Client(Ice.Application):
                     break
             except Ice.ConnectionRefusedException:
                 logging.error("the topic is not available")
-                break
+                counter += 1
+                time.sleep(2)
+                if counter == 3:
+                    return
+            
+                
 
         topic_name = "Announcements"
         try:
@@ -518,8 +542,8 @@ class ClientCmd(cmd.Cmd):
 
 class AdminCmd(cmd.Cmd):
     """Administrator cmd"""
-    intro = Style.NORMAL + Fore.BLACK + '\nWelcome to the administrator mode'
-    prompt = Style.NORMAL + Fore.BLACK + '(Admin mode) > '
+    intro = Style.NORMAL + Fore.WHITE + '\nWelcome to the administrator mode'
+    prompt = Style.NORMAL + Fore.WHITE + '(Admin mode) > '
 
 
     def __init__(self, main, comm, adapter):
@@ -545,7 +569,8 @@ class AdminCmd(cmd.Cmd):
             if is_admin:
                 print("Successfully loged in. Enjoy!")
             else:
-                logging.error("You are not an admin")
+                logging.error("You are not an admin, write exit")    
+
 
     def do_add_user(self, _):
         """Add a user to the persistence of the Athenticator service"""
@@ -707,6 +732,34 @@ class AdminCmd(cmd.Cmd):
             raise RuntimeError("Invalid TopicManager proxy")
 
         topic_name = "FileAvailabilityAnnounce"
+        try:
+            topic = topic_manager.create(topic_name)
+        except IceStorm.TopicExists:
+            topic = topic_manager.retrieve(topic_name)
+
+        qos = {}
+        topic.subscribeAndGetPublisher(qos, proxy)
+
+        while True:
+            tecla = input()
+            if tecla == 'q':
+                # Salimos del método si el usuario pulsa 'q'
+                topic.unsubscribe(proxy)
+                break
+
+    def do_suscribeAnnouncementChannel(self, _):
+        "Suscribes to Announcement channel"
+        print("Press 'q' + enter if you want to unsuscribe")
+
+        servant = AnnounceChannel()
+        proxy = self.adapter.addWithUUID(servant)
+        topic_manager_str_prx = self.comm.propertyToProxy("topicManager")
+        topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx)
+
+        if not topic_manager:
+            raise RuntimeError("Invalid TopicManager proxy")
+
+        topic_name = "Announcements"
         try:
             topic = topic_manager.create(topic_name)
         except IceStorm.TopicExists:
