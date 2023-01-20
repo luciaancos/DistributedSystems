@@ -70,7 +70,7 @@ class MainApp(Ice.Application):
         ice_communicator = self.communicator()
 
         topic_manager_str = ice_communicator.propertyToProxy("TopicManager")
-        topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str)  # pylint: disable=E1101
+        topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str)  
 
         if not topic_manager:
             raise RuntimeError("Invalid TopicManager proxy")
@@ -78,7 +78,7 @@ class MainApp(Ice.Application):
         topic_name = "Announcements"
         try:
             topic = topic_manager.create(topic_name)
-        except IceStorm.TopicExists:  # pylint:disable=E1101
+        except IceStorm.TopicExists:  
             topic = topic_manager.retrieve(topic_name)
 
         self.publisher_servant = MainPrueba()
