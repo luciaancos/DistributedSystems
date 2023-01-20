@@ -25,7 +25,7 @@ except ImportError:
 class MainPrueba(IceFlix.Announcement):
     """Sirviente para la interfaz IceFlix.Announcement"""
 
-    def announce(self, proxy, service_id, current):  # pylint:disable=invalid-name, unused-argument
+    def announce(self, proxy, service_id, current): 
         """Send proxy and service_id to the client"""
         if proxy.ice_isA('::IceFlix::Main'):
             print(f"Announce Main \n")
@@ -44,7 +44,7 @@ class Main(IceFlix.Main):
         self.id_main = str(uuid.uuid4())
 
 
-class MainApp(Ice.Application):  # pylint:disable=R0902
+class MainApp(Ice.Application):
     """Run main ."""
 
     def __init__(self):
