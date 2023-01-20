@@ -28,6 +28,7 @@ except ImportError:
 # pylint: disable=C0103
 # pylint: disable=W0613
 # pylint: disable=E1101
+# pylint: disable=E1205
 #because we can not change the names and arguments of the topic methods
 
 
@@ -49,18 +50,17 @@ class Announcer(IceFlix.Announcement):
         while True:
             copia = self.main_proxys.copy()
             if len(servant.main_proxys) == 0:
-                print("Waiting for an available main service...")
+                logging.info("Waiting for an available main service...")
                 imprimir = True
                 time.sleep(3)
             for proxy, timestamp in copia.items():
-                if int(time.time()- timestamp) > 11:
+                if int(time.time()- timestamp) >= 11:
                     copia.pop(proxy)
                     self.main_proxys = copia
                     break #queremos que se salga del for para que se copie y tenga la logitud nueva
 
                 try:
                     proxy.ice_ping()
-                   
                     if len(servant.main_proxys) == 1:
                         main_proxy = random.choice(list(servant.main_proxys.items()))
                         try:
@@ -68,7 +68,7 @@ class Announcer(IceFlix.Announcement):
                             client_cmd.main_obj = main_obj
                             main_proxy = main_proxy[0]
                             if imprimir == True:
-                                print("You can continue.")
+                                logging.info("You can continue.")
                                 imprimir = False
                         except (Ice.ConnectionRefusedException, Ice.NoEndpointException):
                             break
@@ -81,7 +81,7 @@ class Announcer(IceFlix.Announcement):
                             client_cmd.main_obj = main_obj
                             main_proxy = main_proxy[0]
                             if imprimir == True:
-                                print("You can continue.")
+                                logging.info("You can continue.")
                                 imprimir = False
                         except (Ice.ConnectionRefusedException, Ice.NoEndpointException):
                             break
@@ -95,37 +95,46 @@ class AuthenChannel(IceFlix.UserUpdate):
     "Servant for UserUpdate interface"
     def newToken(self, user, token, service_id, current):
         "Prints info"
-        print("The user: ", user, "has the new token: ", token, ". Changed by the authenticator:", service_id)
+        logging.info("The user: ", user, "has the new token: ", token,
+                     ". Changed by the authenticator:", service_id)
     def newUser(self, user, password_hash, service_id, current):
         "Prints info"
-        print("A new user : ", user, " with the password: ", password_hash, " has been added by the athenticator: ", service_id)
+        logging.info("A new user : ", user, " with the password: ",
+                     password_hash, " has been added by the athenticator: ", service_id)
     def removeUser(self, user, service_id, current):
         "Prints info"
-        print("User ", user, "has been removed by the authenticator: ", service_id)
+        logging.info("User ", user, "has been removed by the authenticator: ", service_id)
 
 class CatalogChannel(IceFlix.CatalogUpdate):
     "Servant for CatalogUpdate interface"
     def renameTile(self, mediaId, newName, service_id, current):
         "Prints info"
-        print(mediaId, "has chenged it name to", newName, " by the catalog service: ", service_id)
+        logging.info(mediaId, "has chenged it name to", newName,
+                     " by the catalog service: ", service_id)
     def addTags(self, mediaId, user, tags, service_id, current):
         "Prints info"
-        print("The media: ", mediaId, "from user: ", user, " have added the tags: ", end=' ')
-        print(', '.join(tags))
-        print("Made by the catalog service: ", service_id)
+        taglist = ', '.join(tags)
+        logging.info("The media: ", mediaId, "from user: ", user, " have added the tags: ",
+                     taglist, ". Made by the catalog service: ", service_id)
+        # print(', '.join(tags))
+        # print("Made by the catalog service: ", service_id)
     def removeTags(self, mediaId, user, tags, service_id, current):
         "Prints info"
-        print("The media: ", mediaId, "from user: ", user, " have deleted the tags: ", end=' ')
-        print(', '.join(tags))
-        print("Made by the catalog service: ", service_id)
+        tag_list = ', '.join(tags)
+        logging.info("The media: ", mediaId, "from user: ", user, " have deleted the tags: ",
+                     tag_list, ". Made by the catalog service: ", service_id)
+        # print(', '.join(tags))
+        # print("Made by the catalog service: ", service_id)
 
 class FileChannel(IceFlix.FileAvailabilityAnnounce):
     "Servant for FileAvailabilityAnnounce interface"
     def announceFiles(self, mediaIds, service_id, current):
         "Prints info"
-        print("Available files: ", end=' ')
-        print(', '.join(mediaIds))
-        print("Made by the catalog service: ", service_id)
+        idlist = ', '.join(mediaIds)
+        logging.info("Available files: ", idlist, "Made by the catalog service: ", service_id)
+        # print("Available files: ", end=' ')
+        # print(', '.join(mediaIds))
+        # print("Made by the catalog service: ", service_id)
 
 
 class AnnounceChannel(IceFlix.Announcement):
@@ -133,13 +142,17 @@ class AnnounceChannel(IceFlix.Announcement):
     def announce(self, service_proxy, serviceId, current):
         "Prints info"
         if service_proxy.ice_isA('::IceFlix::Main'):
-            print("The main service ", service_proxy, " with an id: ", serviceId, " has announced")
+             logging.info('The main service : %s with an id: %s has announced\n',
+                          service_proxy, serviceId)
         if service_proxy.ice_isA('::IceFlix::Authenticator'):
-            print("The authenticator service ", service_proxy, " with an id: ", serviceId, " has announced")
+             logging.info('The authenticator service : %s with an id: %s has announced\n',
+                          service_proxy, serviceId)
         if service_proxy.ice_isA('::IceFlix::MediaCatalog'):
-            print("The catalog service ", service_proxy, " with an id: ", serviceId, " has announced")
+            logging.info('The catalog service : %s with an id: %s has announced\n',
+                         service_proxy, serviceId)
         if service_proxy.ice_isA('::IceFlix::FileService'):
-            print("The file service ", service_proxy, " with an id: ", serviceId, " has announced")
+             logging.info('The file service : %s with an id: %s has announced\n',
+                          service_proxy, serviceId)
 
 
 class Client(Ice.Application):
@@ -163,7 +176,7 @@ class Client(Ice.Application):
                 topic_manager = IceStorm.TopicManagerPrx.checkedCast(topic_manager_str_prx)
 
                 if not topic_manager:
-                    print("Retrying to connect...")
+                    logging.info("Retrying to connect...")
                     raise RuntimeError("Invalid TopicManager proxy")
                 else:
                     break
@@ -172,9 +185,7 @@ class Client(Ice.Application):
                 counter += 1
                 time.sleep(2)
                 if counter == 3:
-                    return
-            
-                
+                    return 
 
         topic_name = "Announcements"
         try:
@@ -315,7 +326,7 @@ class ClientCmd(cmd.Cmd):
                     self.search_bytag(catalog)
                     break
                 else:
-                    print("Sorry, you have introduced an incorrect option")
+                    logging.error("Sorry, you have introduced an incorrect option")
             except IceFlix.WrongMediaId:
                 logging.error("provided media Id is not found")
 
@@ -569,7 +580,7 @@ class AdminCmd(cmd.Cmd):
             if is_admin:
                 print("Successfully loged in. Enjoy!")
             else:
-                logging.error("You are not an admin, write exit")    
+                logging.error("You are not an admin, write exit") 
 
 
     def do_add_user(self, _):
@@ -799,5 +810,6 @@ class FileUploaderServant(IceFlix.FileUploader):
         self.file_descriptor.close()
         current.adapter.remove(current.id)
 
-if __name__ == '__main__':#no se usa si se usa los configs
+#Not necessary if configs are used
+if __name__ == '__main__':
     sys.exit(Client().main(sys.argv))
