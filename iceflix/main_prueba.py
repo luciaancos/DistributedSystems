@@ -55,7 +55,7 @@ class MainApp(Ice.Application):
         self.servant_anunciador = None
         self.hilo_announcement = None
 
-    def run(self, args):  # pylint:disable=R0914, too-many-statements
+    def run(self, args): 
         """Run main ."""
 
         properties = self.communicator().getProperties()
